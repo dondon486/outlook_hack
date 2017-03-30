@@ -7,10 +7,11 @@ import json
 from connect.data import get_email_text
 from collections import Counter
 from collections import OrderedDict
+from flask import request
 
 # The base URL for the Microsoft Graph API.
 graph_api_endpoint = 'https://graph.microsoft.com/v1.0{0}'
-
+owner_id = 'moagarw@microsoft.com'
 
 def call_getMails(access_token):
     # The resource URL for the sendMail action.
@@ -34,20 +35,47 @@ def call_getMails(access_token):
     }
     headers.update(instrumentation)
 
-    response = requests.get(send_mail_url, {'$select': 'toRecipients', '$top': '50'}, headers=headers, verify=False)
+    params = {'$select': 'toRecipients', '$top': '50'}
+    search_crt = add_search()
+    if search_crt:
+        params['$search'] = search_crt
+
+    response = requests.get(send_mail_url, params , headers=headers, verify=False)
 
     list = json.loads(response.text)
     l = []
     h = {}
-
-    for v in list.get('value'):
-        recs = v.get('toRecipients')
-        for r in recs:
-            print
-            l.append(r.get('emailAddress').get('address'))
-            h[r.get('emailAddress').get('address')] = r.get('emailAddress')
-    l = sort_by_freq(l)
+    if list.get('value'):
+        for v in list.get('value'):
+            recs = v.get('toRecipients')
+            for r in recs:
+                print
+                l.append(r.get('emailAddress').get('address'))
+                h[r.get('emailAddress').get('address')] = r.get('emailAddress')
+        l = remove_redundant(l)
+        l = sort_by_freq(l)
     return [h.get(i) for i in l]
+
+def remove_redundant(list):
+    if owner_id in list:
+        list.remove(owner_id)
+    existing_users = request.args.getlist('existing_users[]')
+    if existing_users:
+        list = [x for x in list if x not in existing_users]
+    return list
+
+def add_search():
+    existing_users = request.args.getlist('existing_users[]')
+    limiter = ''
+    search = ''
+    if existing_users:
+        for u in existing_users:
+            search = search + limiter + u
+            limiter = '+'
+    if search:
+        search = 'to:[' + search + ']'
+        search = '"' + search + '"'
+    return search
 
 def call_getCalendarUsers(access_token):
     # The resource URL for the sendMail action.
