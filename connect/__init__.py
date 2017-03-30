@@ -2,7 +2,7 @@
 # See LICENSE in the project root for license information.
 
 from connect.config import client_id, client_secret
-from connect.graph_service import call_sendMail_endpoint
+from connect.graph_service import call_sendMail_endpoint,call_getMails,call_getCalendarRooms,call_getCalendarUsers
 from flask import Flask, redirect, url_for, session, request, jsonify, render_template
 from flask_oauthlib.client import OAuth, OAuthException
 import json
@@ -20,8 +20,8 @@ microsoft = oauth.remote_app(
 	'microsoft',
 	consumer_key=client_id,
 	consumer_secret=client_secret,
-	request_token_params={'scope': 'User.Read Mail.Send'},
-	base_url='https://graph.microsoft.com/v1.0/',
+	request_token_params={'scope': 'User.Read Mail.Send Mail.Read Calendars.Read'},
+	base_url='https://graph.microsoft.com/v2.0/',
 	request_token_url=None,
 	access_token_method='POST',
 	access_token_url='https://login.microsoftonline.com/common/oauth2/v2.0/token',
@@ -73,8 +73,8 @@ def authorized():
 	meResponse = microsoft.get('me')
 	meData = json.dumps(meResponse.data)
 	me = json.loads(meData)
-	userName = me['displayName']
-	userEmailAddress = me['userPrincipalName']
+	userName = me.get('displayName')
+	userEmailAddress = me.get('userPrincipalName')
 	session['alias'] = userName
 	session['userEmailAddress'] = userEmailAddress
 	return redirect('main')
@@ -108,6 +108,20 @@ def send_mail():
   session['pageRefresh'] = 'false'
   return render_template('main.html', alias=session['alias'], emailAddress=emailAddress, showSuccess=showSuccess, showError=showError)
 
+@app.route('/email_users')
+def email_users():
+  response = call_getMails(session['access_token'])
+  return jsonify(response)
+
+@app.route('/meeting_users')
+def meeting_users():
+  response = call_getCalendarUsers(session['access_token'])
+  return jsonify(response)
+
+@app.route('/meeting_rooms')
+def meeting_rooms():
+  response = call_getCalendarRooms(session['access_token'])
+  return jsonify(response)
 
 # If library is having trouble with refresh, uncomment below and implement refresh handler
 # see https://github.com/lepture/flask-oauthlib/issues/160 for instructions on how to do this
