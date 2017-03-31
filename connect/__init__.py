@@ -41,7 +41,11 @@ def login():
 	guid = uuid.uuid4()
 	session['state'] = guid
 
-	return microsoft.authorize(callback=url_for('authorized', _external=True), state=guid)
+	return microsoft.authorize(callback=to_https(url_for('authorized', _external=True)), state=guid)
+
+
+def to_https(url):
+	return url.replace("http", "https")
 
 @app.route('/logout')
 def logout():
